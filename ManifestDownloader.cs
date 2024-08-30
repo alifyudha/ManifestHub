@@ -141,7 +141,11 @@ class ManifestDownloader {
     }
 
 private async Task<Dictionary<uint, SteamApps.PICSProductInfoCallback.PICSProductInfo>> ResolveAppsAsync(bool includeDLCs = true) {
+    Console.WriteLine("Starting ResolveAppsAsync...");
+
     await _licenseReady.Task.ConfigureAwait(false);
+
+    Console.WriteLine("License ready...");
 
     var packagePicsRequest = _licenses
         .Where(license => license.PaymentMethod != EPaymentMethod.Complimentary)
@@ -155,6 +159,8 @@ private async Task<Dictionary<uint, SteamApps.PICSProductInfoCallback.PICSProduc
 
     if (!productInfo.Complete || productInfo.Results == null) throw new Exception("Failed to get product info");
 
+    Console.WriteLine("Received product info...");
+
     var products = productInfo.Results.SelectMany(result => result.Packages).ToDictionary();
     var appIds = products.SelectMany(product =>
         product.Value.KeyValues["appids"].Children
@@ -162,6 +168,7 @@ private async Task<Dictionary<uint, SteamApps.PICSProductInfoCallback.PICSProduc
             .Where(app => app != 0)).Distinct().ToList();
 
     if (includeDLCs) {
+        Console.WriteLine("Checking for DLCs...");
         foreach (var product in products) {
             var dlcIds = product.Value.KeyValues["dlcs"].Children
                 .Select(dlc => dlc.AsUnsignedInteger())
@@ -173,6 +180,8 @@ private async Task<Dictionary<uint, SteamApps.PICSProductInfoCallback.PICSProduc
                     Console.WriteLine($" - DLC AppID: {dlcId}");
                     appIds.Add(dlcId);  // Add the DLC to the list of apps to resolve
                 }
+            } else {
+                Console.WriteLine($"No DLCs found for Game AppID: {product.Key}");
             }
         }
     }
@@ -188,9 +197,10 @@ private async Task<Dictionary<uint, SteamApps.PICSProductInfoCallback.PICSProduc
 
     if (!appInfo.Complete || appInfo.Results == null) throw new Exception("Failed to get app info");
 
+    Console.WriteLine("Successfully resolved apps.");
+
     return appInfo.Results.SelectMany(result => result.Apps).ToDictionary();
 }
-
 
     public async Task DownloadAllManifestsAsync(int maxConcurrentDownloads = 16,
         GitDatabase? gdb = null, ConcurrentBag<Task>? writeTasks = null) {
