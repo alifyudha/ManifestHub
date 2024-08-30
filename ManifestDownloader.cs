@@ -162,11 +162,19 @@ private async Task<Dictionary<uint, SteamApps.PICSProductInfoCallback.PICSProduc
             .Where(app => app != 0)).Distinct().ToList();
 
     if (includeDLCs) {
-        var dlcIds = products.SelectMany(product =>
-            product.Value.KeyValues["dlcs"].Children
+        foreach (var product in products) {
+            var dlcIds = product.Value.KeyValues["dlcs"].Children
                 .Select(dlc => dlc.AsUnsignedInteger())
-                .Where(dlc => dlc != 0)).Distinct().ToList();
-        appIds.AddRange(dlcIds);
+                .Where(dlc => dlc != 0).ToList();
+
+            if (dlcIds.Count > 0) {
+                Console.WriteLine($"Game AppID: {product.Key} has the following owned DLCs:");
+                foreach (var dlcId in dlcIds) {
+                    Console.WriteLine($" - DLC AppID: {dlcId}");
+                    appIds.Add(dlcId);  // Add the DLC to the list of apps to resolve
+                }
+            }
+        }
     }
 
     var appTokens = await _steamApps.PICSGetAccessTokens(appIds, []).ToTask().ConfigureAwait(false);
