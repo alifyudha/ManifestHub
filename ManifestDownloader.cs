@@ -8,21 +8,24 @@ using SteamKit2.Discovery;
 namespace ManifestHub;
 
 class ManifestDownloader {
-
     private readonly Client _cdnClient;
     private readonly SteamApps _steamApps;
     private readonly SteamUser _steamUser;
     private readonly SteamClient _steamClient;
     private readonly SteamContent _steamContent;
+
     private readonly Task _daemonTask;
     private readonly CancellationTokenSource _cancellationTokenSource;
+
     private readonly string? _password;
     private string? _refreshToken;
     private string? _newRefreshToken;
+
     private AccountInfoCallback? _accountInfo;
     private readonly AccountInfoCallback? _accountInfoArchive;
+
     private readonly TaskCompletionSource _licenseReady = new();
-    private readonly HashSet<SteamApps.LicenseListCallback.License> _licenses = new();
+    private readonly HashSet<SteamApps.LicenseListCallback.License> _licenses = [];
     private readonly TaskCompletionSource _loginReady = new();
 
     public ManifestDownloader(AccountInfoCallback accountInfo) : this(
@@ -42,7 +45,6 @@ class ManifestDownloader {
                 builder.WithUniverse(EUniverse.Public);
             }
         ));
-
         _cdnClient = new Client(_steamClient);
         _steamApps = _steamClient.GetHandler<SteamApps>() ?? throw new NullReferenceException();
         _steamUser = _steamClient.GetHandler<SteamUser>() ?? throw new NullReferenceException();
@@ -121,6 +123,7 @@ class ManifestDownloader {
 
         if (key == null) throw new Exception($"Failed to get depot key. AppID: {appid}, DepotID: {depotId}");
 
+
         while (retries < maxRetries) {
             try {
                 var manifest = await _cdnClient.DownloadManifestAsync(depotId, manifestId, requestCode, server, key)
@@ -137,45 +140,64 @@ class ManifestDownloader {
             $"Failed to download manifest. AppID: {appid}, DepotID: {depotId}, ManifestID: {manifestId}");
     }
 
-    private async Task<Dictionary<uint, SteamApps.PICSProductInfoCallback.PICSProductInfo>> ResolveAppsAsync() {
-        await _licenseReady.Task.ConfigureAwait(false);
+private async Task<Dictionary<uint, SteamApps.PICSProductInfoCallback.PICSProductInfo>> ResolveAppsAsync()
+{
+    await _licenseReady.Task.ConfigureAwait(false);
 
-        var packagePicsRequest = _licenses
-            .Where(license => license.PaymentMethod != EPaymentMethod.Complimentary)
-            .Select(license => new SteamApps.PICSRequest {
-                ID = license.PackageID,
-                AccessToken = license.AccessToken,
-            });
-
-        var productInfo =
-            await _steamApps.PICSGetProductInfo([], packagePicsRequest).ToTask().ConfigureAwait(false);
-
-        if (!productInfo.Complete || productInfo.Results == null) throw new Exception("Failed to get product info");
-
-        var products = productInfo.Results.SelectMany(result => result.Packages).ToDictionary();
-
-        var appIds = products.SelectMany(product =>
-            product.Value.KeyValues["appids"].Children
-                .Select(app => app.AsUnsignedInteger())
-                .Where(app => app != 0)).Distinct().ToList();
-
-        var appTokens = await _steamApps.PICSGetAccessTokens(appIds, []).ToTask().ConfigureAwait(false);
-
-        var appPicsRequest = appTokens.AppTokens.Select(token => new SteamApps.PICSRequest {
-            ID = token.Key,
-            AccessToken = token.Value,
+    var packagePicsRequest = _licenses
+        .Where(license => license.PaymentMethod != EPaymentMethod.Complimentary)
+        .Select(license => new SteamApps.PICSRequest
+        {
+            ID = license.PackageID,
+            AccessToken = license.AccessToken,
         });
 
-        var appInfo = await _steamApps.PICSGetProductInfo(appPicsRequest, []).ToTask().ConfigureAwait(false);
+    var productInfo = await _steamApps.PICSGetProductInfo(new List<uint>(), packagePicsRequest).ToTask().ConfigureAwait(false);
 
-        if (!appInfo.Complete || appInfo.Results == null) throw new Exception("Failed to get app info");
+    if (!productInfo.Complete || productInfo.Results == null) throw new Exception("Failed to get product info");
 
-        return appInfo.Results.SelectMany(result => result.Apps).ToDictionary();
+    var products = productInfo.Results.SelectMany(result => result.Packages).ToDictionary();
+
+    // Keeping track of DLC IDs
+    var ownedDlcIds = new List<uint>();
+
+    foreach (var product in products.Values)
+    {
+        // Check if the KeyValues contain DLC information
+        var dlcs = product.KeyValues["dlcs"].Children
+            .Select(dlc => dlc.AsUnsignedInteger())
+            .Where(id => id != 0).ToList();
+
+        ownedDlcIds.AddRange(dlcs);
     }
+
+    var appIds = products.SelectMany(product => product.Value.KeyValues["appids"].Children
+        .Select(app => app.AsUnsignedInteger())
+        .Where(app => app != 0)).Distinct().ToList();
+
+    var appTokens = await _steamApps.PICSGetAccessTokens(appIds, new List<uint>()).ToTask().ConfigureAwait(false);
+    var appPicsRequest = appTokens.AppTokens.Select(token => new SteamApps.PICSRequest
+    {
+        ID = token.Key,
+        AccessToken = token.Value,
+    });
+
+    var appInfo = await _steamApps.PICSGetProductInfo(appPicsRequest, new List<uint>()).ToTask().ConfigureAwait(false);
+
+    if (!appInfo.Complete || appInfo.Results == null) throw new Exception("Failed to get app info");
+
+    // Now you can access the DLC IDs with `ownedDlcIds`
+    Console.WriteLine($"Owned DLC IDs: {string.Join(", ", ownedDlcIds)}");
+
+    // Return app info as needed; here we just return the app products for now
+    return appInfo.Results.SelectMany(result => result.Apps).ToDictionary();
+}
+
 
     public async Task DownloadAllManifestsAsync(int maxConcurrentDownloads = 16,
         GitDatabase? gdb = null, ConcurrentBag<Task>? writeTasks = null) {
         var servers = (await _steamContent.GetServersForSteamPipe()).ToArray();
+
         var semaphore = new SemaphoreSlim(maxConcurrentDownloads);
         var tasksList = new List<Func<Task<ManifestInfoCallback>>>();
         var downloadTasks = new List<Task>();
@@ -193,7 +215,6 @@ class ManifestDownloader {
                 .Where(depot => !(gdb?.HasManifest(app.Key, depot.Key, depot.Value) ?? false)).ToDictionary();
 
             tasksList.AddRange(depots.Select(depot => (Func<Task<ManifestInfoCallback>>)(
-
                 () => DownloadManifestAsync(app.Key, depot.Key, depot.Value, servers[depot.Key % servers.Length])
             )));
         }
@@ -209,6 +230,7 @@ class ManifestDownloader {
                             var result = await task();
                             Console.WriteLine(
                                 $"[Success]: AppID: {result.AppId}, DepotID: {result.DepotId}, ManifestID: {result.ManifestId}");
+
                             writeTasks.Add(Task.Run(
                                 async () => {
                                     var commit = await gdb.WriteManifest(result);
@@ -234,6 +256,7 @@ class ManifestDownloader {
         await Task.WhenAll(downloadTasks).ConfigureAwait(false);
     }
 
+
     public async Task<AccountInfoCallback> GetAccountInfo(bool resolveAppIds = true) {
         _accountInfo ??= new AccountInfoCallback(
             accountName: Username,
@@ -241,6 +264,7 @@ class ManifestDownloader {
         );
 
         _accountInfo.Index ??= _steamUser.SteamID?.AsCsgoFriendCode();
+
         _accountInfo.AccountPassword = _password;
         _accountInfo.RefreshToken = _newRefreshToken ?? _refreshToken;
 
@@ -254,8 +278,10 @@ class ManifestDownloader {
             !_accountInfo.AppIds.SequenceEqual(_accountInfoArchive.AppIds)) {
             _accountInfo.LastRefresh = DateTime.Now;
         }
+
         return _accountInfo;
     }
+
 
     private async void OnConnected(SteamClient.ConnectedCallback callback) {
         Console.WriteLine($"Connected to Steam! Logging in '{Username}'...");
@@ -268,7 +294,6 @@ class ManifestDownloader {
             });
         } else {
             AuthPollResult? pollResponse;
-
             try {
                 AuthSession authSession = await _steamClient.Authentication.BeginAuthSessionViaCredentialsAsync(
                     new AuthSessionDetails {
@@ -281,13 +306,16 @@ class ManifestDownloader {
 
                 var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
                 pollResponse = await authSession.PollingWaitForResultAsync(cts.Token).ConfigureAwait(false);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 _loginReady.TrySetException(e);
                 return;
             }
 
+
             if (!string.IsNullOrEmpty(pollResponse.RefreshToken)) {
                 _newRefreshToken = pollResponse.RefreshToken;
+
                 _steamUser.LogOn(new SteamUser.LogOnDetails {
                     Username = pollResponse.AccountName,
                     AccessToken = pollResponse.RefreshToken,
@@ -305,6 +333,7 @@ class ManifestDownloader {
             if (!string.IsNullOrEmpty(_refreshToken)) {
                 Console.WriteLine(
                     $"[Previous RefreshToken] Unable to logon to User: {Username}, Result: {callback.Result}");
+
                 if (callback.Result == EResult.AlreadyLoggedInElsewhere)
                     _loginReady.TrySetException(new Exception($"Unable to logon to Steam: {callback.Result}"));
 
@@ -322,10 +351,6 @@ class ManifestDownloader {
                 : "Logged on using new RefreshToken") + $" as {Username}");
 
         await _licenseReady.Task.ConfigureAwait(false);
-        
-        // Show DLC info after the licenses have been received
-        await ShowDlcInfoAsync();
-
         _loginReady.TrySetResult();
     }
 
@@ -342,23 +367,6 @@ class ManifestDownloader {
     private void OnLicenseList(SteamApps.LicenseListCallback callback) {
         Console.WriteLine($"Received {callback.LicenseList.Count} licenses for {Username}");
         _licenses.UnionWith(callback.LicenseList);
-
-        // Display the licenses, including DLC IDs and associated App IDs
-        foreach (var license in callback.LicenseList) {
-            if (license.ProductType == EProductType.Dlc) {
-                Console.WriteLine($"DLC ID: {license.PackageID}, App ID: {license.AppID}");
-            }
-        }
-
         _licenseReady.TrySetResult();
-    }
-
-    public async Task ShowDlcInfoAsync() {
-        await _licenseReady.Task.ConfigureAwait(false);
-        foreach (var license in _licenses) {
-            if (license.ProductType == EProductType.Dlc) {
-                Console.WriteLine($"DLC ID: {license.PackageID}, App ID: {license.AppID}");
-            }
-        }
     }
 }
