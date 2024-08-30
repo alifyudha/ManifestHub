@@ -140,73 +140,40 @@ class ManifestDownloader {
             $"Failed to download manifest. AppID: {appid}, DepotID: {depotId}, ManifestID: {manifestId}");
     }
 
-private async Task<Dictionary<uint, SteamApps.PICSProductInfoCallback.PICSProductInfo>> ResolveAppsAsync(bool includeDLCs = true) {
-    Console.WriteLine("Starting ResolveAppsAsync...");
+    private async Task<Dictionary<uint, SteamApps.PICSProductInfoCallback.PICSProductInfo>> ResolveAppsAsync() {
+        await _licenseReady.Task.ConfigureAwait(false);
 
-    await _licenseReady.Task.ConfigureAwait(false);
+        var packagePicsRequest = _licenses
+            .Where(license => license.PaymentMethod != EPaymentMethod.Complimentary)
+            .Select(license => new SteamApps.PICSRequest {
+                ID = license.PackageID,
+                AccessToken = license.AccessToken,
+            });
 
-    Console.WriteLine("License ready...");
+        var productInfo =
+            await _steamApps.PICSGetProductInfo([], packagePicsRequest).ToTask().ConfigureAwait(false);
 
-    var packagePicsRequest = _licenses
-        .Where(license => license.PaymentMethod != EPaymentMethod.Complimentary)
-        .Select(license => new SteamApps.PICSRequest {
-            ID = license.PackageID,
-            AccessToken = license.AccessToken,
+        if (!productInfo.Complete || productInfo.Results == null) throw new Exception("Failed to get product info");
+
+        var products = productInfo.Results.SelectMany(result => result.Packages).ToDictionary();
+        var appIds = products.SelectMany(product =>
+            product.Value.KeyValues["appids"].Children
+                .Select(app => app.AsUnsignedInteger())
+                .Where(app => app != 0)).Distinct().ToList();
+
+        var appTokens = await _steamApps.PICSGetAccessTokens(appIds, []).ToTask().ConfigureAwait(false);
+
+        var appPicsRequest = appTokens.AppTokens.Select(token => new SteamApps.PICSRequest {
+            ID = token.Key,
+            AccessToken = token.Value,
         });
 
-    var productInfo =
-        await _steamApps.PICSGetProductInfo([], packagePicsRequest).ToTask().ConfigureAwait(false);
+        var appInfo = await _steamApps.PICSGetProductInfo(appPicsRequest, []).ToTask().ConfigureAwait(false);
 
-    if (!productInfo.Complete || productInfo.Results == null) throw new Exception("Failed to get product info");
+        if (!appInfo.Complete || appInfo.Results == null) throw new Exception("Failed to get app info");
 
-    Console.WriteLine("Received product info...");
-
-    var products = productInfo.Results.SelectMany(result => result.Packages).ToDictionary();
-    var appIds = products.SelectMany(product =>
-        product.Value.KeyValues["appids"].Children
-            .Select(app => app.AsUnsignedInteger())
-            .Where(app => app != 0)).Distinct().ToList();
-
-    if (includeDLCs) {
-        Console.WriteLine("Checking for DLCs...");
-foreach (var product in products) {
-    Console.WriteLine($"Inspecting product: {product.Key}");
-    Console.WriteLine("KeyValues structure:");
-    Console.WriteLine(product.Value.KeyValues.ToString());
-
-    var dlcIds = product.Value.KeyValues["dlcs"].Children
-        .Select(dlc => dlc.AsUnsignedInteger())
-        .Where(dlc => dlc != 0).ToList();
-
-    if (dlcIds.Count > 0) {
-        Console.WriteLine($"Game AppID: {product.Key} has the following owned DLCs:");
-        foreach (var dlcId in dlcIds) {
-            Console.WriteLine($" - DLC AppID: {dlcId}");
-            appIds.Add(dlcId);  // Add the DLC to the list of apps to resolve
-        }
-    } else {
-        Console.WriteLine($"No DLCs found for Game AppID: {product.Key}");
+        return appInfo.Results.SelectMany(result => result.Apps).ToDictionary();
     }
-}
-
-        }
-    }
-
-    var appTokens = await _steamApps.PICSGetAccessTokens(appIds, []).ToTask().ConfigureAwait(false);
-
-    var appPicsRequest = appTokens.AppTokens.Select(token => new SteamApps.PICSRequest {
-        ID = token.Key,
-        AccessToken = token.Value,
-    });
-
-    var appInfo = await _steamApps.PICSGetProductInfo(appPicsRequest, []).ToTask().ConfigureAwait(false);
-
-    if (!appInfo.Complete || appInfo.Results == null) throw new Exception("Failed to get app info");
-
-    Console.WriteLine("Successfully resolved apps.");
-
-    return appInfo.Results.SelectMany(result => result.Apps).ToDictionary();
-}
 
     public async Task DownloadAllManifestsAsync(int maxConcurrentDownloads = 16,
         GitDatabase? gdb = null, ConcurrentBag<Task>? writeTasks = null) {
