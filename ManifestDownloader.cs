@@ -350,32 +350,38 @@ private void OnLicenseList(SteamApps.LicenseListCallback callback) {
 
     _licenses.UnionWith(callback.LicenseList);
 
-    // Create a collection to store owned DLC IDs
-    var ownedDlcIds = new HashSet<uint>();
+    // Use a dictionary to store PackageID as key and list of DLC IDs as value
+    var packageToDlcMap = new Dictionary<uint, List<uint>>();
 
-    // Iterate through the license list to check for DLC IDs
+    // Iterate through the license list
     foreach (var license in callback.LicenseList) {
-        // Check if the license corresponds to a DLC - you'll have to implement your logic here
-        // For example, let's assume any package ID with a certain characteristic is a DLC:
-        if (IsDlcPackage(license.PackageID)) { // You would need to implement IsDlcPackage logic based on your conditions
-            ownedDlcIds.Add(license.PackageID);
+        // Assuming PackageID serves as an identifier to check for DLCs
+        if (IsDlcPackage(license.PackageID)) { // If this license corresponds to a DLC
+            // Add the PackageID and DLC ID to the mapping
+            if (!packageToDlcMap.ContainsKey(license.PackageID)) {
+                packageToDlcMap[license.PackageID] = new List<uint>(); // Create a new list if not present
+            }
+            packageToDlcMap[license.PackageID].Add(license.PackageID); // Here we assume the PackageID is the DLC ID. Adjust as necessary.
+            
             Console.WriteLine($"DLC Owned: PackageID: {license.PackageID}");
         }
     }
 
-    // Output all owned DLC IDs
-    Console.WriteLine("All owned DLC IDs: " + string.Join(", ", ownedDlcIds));
+    // Output the mapping of Package IDs to their corresponding DLC IDs
+    foreach (var entry in packageToDlcMap) {
+        Console.WriteLine($"PackageID: {entry.Key}, DLC IDs: {string.Join(", ", entry.Value)}");
+    }
 
     _licenseReady.TrySetResult();
 }
 
 // Example implementation of IsDlcPackage (customize as necessary)
 private bool IsDlcPackage(uint packageId) {
-    // Your logic to determine if the PackageID is a DLC, e.g., based on known IDs, 
-    // a specific range, or hardcoded conditions.
-    // Return true if it is a DLC, false otherwise.
-    return packageId > 0; // Replace with actual DLC identification logic
+    // Implement your logic to determine if the PackageID is a DLC
+    // For example, identify certain package IDs as DLC or based on patterns
+    return packageId > 0; // Adjust this logic as per your requirements
 }
+
 
 
 }
