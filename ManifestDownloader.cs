@@ -153,11 +153,11 @@ private async Task<Dictionary<uint, SteamApps.PICSProductInfoCallback.PICSProduc
             AccessToken = license.AccessToken,
         }).ToList();
 
-    // Form a list of app IDs that you will use
-    var appIds = packagePicsRequests.Select(req => req.ID).ToList(); // Assuming the package IDs are relevant here
+    // Collect App IDs
+    var ownedAppIds = packagePicsRequests.Select(req => req.ID).ToList();
 
-    // Ensure you are calling the PICSGetProductInfo properly
-    var productInfo = await _steamApps.PICSGetProductInfo(appIds, packagePicsRequests).ToTask().ConfigureAwait(false);
+    // Here ensure you call the correct overloads of PICSGetProductInfo
+    var productInfo = await _steamApps.PICSGetProductInfo(ownedAppIds, packagePicsRequests).ToTask().ConfigureAwait(false);
 
     if (!productInfo.Complete || productInfo.Results == null) throw new Exception("Failed to get product info");
 
@@ -175,25 +175,24 @@ private async Task<Dictionary<uint, SteamApps.PICSProductInfoCallback.PICSProduc
         ownedDlcIds.AddRange(dlcs);
     }
 
-    // Process app tokens as before
-    var appTokens = await _steamApps.PICSGetAccessTokens(appIds, new List<uint>()).ToTask().ConfigureAwait(false);
+    // Resolve app tokens for additional info
+    var appTokens = await _steamApps.PICSGetAccessTokens(ownedAppIds, new List<uint>()).ToTask().ConfigureAwait(false);
     var appPicsRequests = appTokens.AppTokens.Select(token => new SteamApps.PICSRequest
     {
         ID = token.Key,
         AccessToken = token.Value,
     }).ToList();
 
+    // Call PICSGetProductInfo with correct overload
     var appInfo = await _steamApps.PICSGetProductInfo(appPicsRequests, new List<uint>()).ToTask().ConfigureAwait(false);
 
     if (!appInfo.Complete || appInfo.Results == null) throw new Exception("Failed to get app info");
 
-    // Now you can access the DLC IDs with `ownedDlcIds`
+    // Output the owned DLC IDs
     Console.WriteLine($"Owned DLC IDs: {string.Join(", ", ownedDlcIds)}");
 
     return appInfo.Results.SelectMany(result => result.Apps).ToDictionary();
 }
-
-
 
     public async Task DownloadAllManifestsAsync(int maxConcurrentDownloads = 16,
         GitDatabase? gdb = null, ConcurrentBag<Task>? writeTasks = null) {
