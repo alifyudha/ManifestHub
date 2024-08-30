@@ -350,21 +350,32 @@ private void OnLicenseList(SteamApps.LicenseListCallback callback) {
 
     _licenses.UnionWith(callback.LicenseList);
 
-    // Create a collection to store DLC IDs
+    // Create a collection to store owned DLC IDs
     var ownedDlcIds = new HashSet<uint>();
 
-    // Iterate through the license list and add DLC IDs
+    // Iterate through the license list to check for DLC IDs
     foreach (var license in callback.LicenseList) {
-        if (license.AppType == EAppType.DLC) {
+        // Check if the license corresponds to a DLC - you'll have to implement your logic here
+        // For example, let's assume any package ID with a certain characteristic is a DLC:
+        if (IsDlcPackage(license.PackageID)) { // You would need to implement IsDlcPackage logic based on your conditions
             ownedDlcIds.Add(license.PackageID);
             Console.WriteLine($"DLC Owned: PackageID: {license.PackageID}");
         }
     }
 
-    // Optionally, you can output all owned DLC IDs
+    // Output all owned DLC IDs
     Console.WriteLine("All owned DLC IDs: " + string.Join(", ", ownedDlcIds));
 
     _licenseReady.TrySetResult();
 }
+
+// Example implementation of IsDlcPackage (customize as necessary)
+private bool IsDlcPackage(uint packageId) {
+    // Your logic to determine if the PackageID is a DLC, e.g., based on known IDs, 
+    // a specific range, or hardcoded conditions.
+    // Return true if it is a DLC, false otherwise.
+    return packageId > 0; // Replace with actual DLC identification logic
+}
+
 
 }
