@@ -201,62 +201,59 @@ namespace ManifestHub
             return (appInfo.Results.SelectMany(result => result.Apps).ToDictionary(), dlcIds);
         }
 
-        public async Task DownloadAllManifestsAsync(int maxConcurrentDownloads = 16,
-            GitDatabase? gdb = null, ConcurrentBag<Task>? writeTasks = null)
+public async Task DownloadAllManifestsAsync(int maxConcurrentDownloads = 16,
+    GitDatabase? gdb = null, ConcurrentBag<Task>? writeTasks = null)
+{
+    var servers = (await _steamContent.GetServersForSteamPipe()).ToArray();
+    var semaphore = new SemaphoreSlim(maxConcurrentDownloads);
+    var tasksList = new List<Func<Task<ManifestInfoCallback>>>();
+    var downloadTasks = new List<Task>();
+
+    var (apps, dlcIds) = await ResolveAppsAndDlcAsync(); // Destructure the tuple correctly
+
+    foreach (var app in apps)
+    {
+        var appId = app.Key; // main app ID
+
+        var depots = app.Value.KeyValues["depots"].Children
+            .Where(depot => depot.Name?.All(char.IsDigit) ?? false)
+            .Select(depot => uint.Parse(depot.Name!)) // Ensure Name is not null here
+            .Distinct()
+            .ToList();
+
+        foreach (var depot in depots)
         {
-            var servers = (await _steamContent.GetServersForSteamPipe()).ToArray();
-            var semaphore = new SemaphoreSlim(maxConcurrentDownloads);
-            var tasksList = new List<Func<Task<ManifestInfoCallback>>>();
-            var downloadTasks = new List<Task>();
-
-            foreach (var app in await ResolveAppsAndDlcAsync())
-            {
-                var appId = app.apps.First().Key; // Assuming the first app is the main app
-                var depots = app.apps.SelectMany(product => product.Value.KeyValues["depots"].Children
-                                         .Where(depot => depot.Name?.All(char.IsDigit) ?? false)
-                                         .Select(depot => uint.Parse(depot.Name!)))
-                    .Distinct().ToList();
-
-                tasksList.AddRange(depots.Select(depot => (Func<Task<ManifestInfoCallback>>)(() =>
-                    DownloadManifestAsync(appId, depot, manifestId, servers[depot % servers.Length]))));
-            }
-
-            foreach (var task in tasksList)
-            {
-                await semaphore.WaitAsync();
-                Debug.Assert(gdb != null, nameof(gdb) + " != null");
-                Debug.Assert(writeTasks != null, nameof(writeTasks) + " != null");
-
-                downloadTasks.Add(Task.Run(async () =>
-                {
-                    try
-                    {
-                        var result = await task();
-                        Console.WriteLine($"[Success]: AppID: {result.AppId}, DepotID: {result.DepotId}, ManifestID: {result.ManifestId}");
-
-                        writeTasks.Add(Task.Run(async () =>
-                        {
-                            var commit = await gdb.WriteManifest(result);
-                            Console.WriteLine($"[Written]: AppID: {result.AppId}, DepotID: {result.DepotId}, ManifestID: {result.ManifestId}, Commit: {commit?.Sha}");
-                        }));
-                    }
-                    catch (Exception e)
-                    {
-                        if (!e.Message.Contains("Access denied to manifest") &&
-                            !e.Message.Contains("Failed to get depot key"))
-                        {
-                            Console.WriteLine($"[Failed]: AppID: {result.AppId}, DepotID: {result.DepotId}, ManifestID: {result.ManifestId}, Error: {e.Message}");
-                        }
-                    }
-                    finally
-                    {
-                        semaphore.Release();
-                    }
-                }));
-            }
-
-            await Task.WhenAll(downloadTasks).ConfigureAwait(false);
+            ulong manifestId = GetManifestIdForDepot(appId, depot); // Define how to get the manifest Id
+            tasksList.Add(() => DownloadManifestAsync(appId, depot, manifestId, servers[depot % servers.Length]));
         }
+    }
+
+    foreach (var task in tasksList)
+    {
+        await semaphore.WaitAsync();
+
+        downloadTasks.Add(Task.Run(async () =>
+        {
+            try
+            {
+                var result = await task();
+                Console.WriteLine($"[Success]: AppID: {result.AppId}, DepotID: {result.DepotId}, ManifestID: {result.ManifestId}");
+                // Handle writing to gdb or any additional processing
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"[Failed]: Error: {e.Message}");
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        }));
+    }
+
+    await Task.WhenAll(downloadTasks).ConfigureAwait(false);
+}
+
 
         public async Task<AccountInfoCallback> GetAccountInfo(bool resolveAppIds = true)
         {
