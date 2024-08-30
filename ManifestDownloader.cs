@@ -345,43 +345,9 @@ class ManifestDownloader {
         }
     }
 
-private void OnLicenseList(SteamApps.LicenseListCallback callback) {
-    Console.WriteLine($"Received {callback.LicenseList.Count} licenses for {Username}");
-
-    _licenses.UnionWith(callback.LicenseList);
-
-    // Use a dictionary to store PackageID as key and list of DLC IDs as value
-    var packageToDlcMap = new Dictionary<uint, List<uint>>();
-
-    // Iterate through the license list
-    foreach (var license in callback.LicenseList) {
-        // Assuming PackageID serves as an identifier to check for DLCs
-        if (IsDlcPackage(license.PackageID)) { // If this license corresponds to a DLC
-            // Add the PackageID and DLC ID to the mapping
-            if (!packageToDlcMap.ContainsKey(license.PackageID)) {
-                packageToDlcMap[license.PackageID] = new List<uint>(); // Create a new list if not present
-            }
-            packageToDlcMap[license.PackageID].Add(license.PackageID); // Here we assume the PackageID is the DLC ID. Adjust as necessary.
-            
-            Console.WriteLine($"DLC Owned: PackageID: {license.PackageID}");
-        }
+    private void OnLicenseList(SteamApps.LicenseListCallback callback) {
+        Console.WriteLine($"Received {callback.LicenseList.Count} licenses for {Username}");
+        _licenses.UnionWith(callback.LicenseList);
+        _licenseReady.TrySetResult();
     }
-
-    // Output the mapping of Package IDs to their corresponding DLC IDs
-    foreach (var entry in packageToDlcMap) {
-        Console.WriteLine($"PackageID: {entry.Key}, DLC IDs: {string.Join(", ", entry.Value)}");
-    }
-
-    _licenseReady.TrySetResult();
-}
-
-// Example implementation of IsDlcPackage (customize as necessary)
-private bool IsDlcPackage(uint packageId) {
-    // Implement your logic to determine if the PackageID is a DLC
-    // For example, identify certain package IDs as DLC or based on patterns
-    return packageId > 0; // Adjust this logic as per your requirements
-}
-
-
-
 }
