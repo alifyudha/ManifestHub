@@ -345,9 +345,26 @@ class ManifestDownloader {
         }
     }
 
-    private void OnLicenseList(SteamApps.LicenseListCallback callback) {
-        Console.WriteLine($"Received {callback.LicenseList.Count} licenses for {Username}");
-        _licenses.UnionWith(callback.LicenseList);
-        _licenseReady.TrySetResult();
+private void OnLicenseList(SteamApps.LicenseListCallback callback) {
+    Console.WriteLine($"Received {callback.LicenseList.Count} licenses for {Username}");
+
+    _licenses.UnionWith(callback.LicenseList);
+
+    // Create a collection to store DLC IDs
+    var ownedDlcIds = new HashSet<uint>();
+
+    // Iterate through the license list and add DLC IDs
+    foreach (var license in callback.LicenseList) {
+        if (license.AppType == EAppType.DLC) {
+            ownedDlcIds.Add(license.PackageID);
+            Console.WriteLine($"DLC Owned: PackageID: {license.PackageID}");
+        }
     }
+
+    // Optionally, you can output all owned DLC IDs
+    Console.WriteLine("All owned DLC IDs: " + string.Join(", ", ownedDlcIds));
+
+    _licenseReady.TrySetResult();
+}
+
 }
