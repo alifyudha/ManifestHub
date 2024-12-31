@@ -1,4 +1,4 @@
-﻿using SteamKit2;
+using SteamKit2;
 
 namespace ManifestHub;
 
