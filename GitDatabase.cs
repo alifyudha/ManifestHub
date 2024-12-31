@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Text;
 using System.Text.RegularExpressions;
 using LibGit2Sharp;
@@ -96,6 +96,37 @@ public partial class GitDatabase {
                 _repo.ObjectDatabase.CreateBlob(
                     new MemoryStream(Encoding.UTF8.GetBytes(VdfConvert.Serialize(keyConfig))));
             treeDef.Add("Key.vdf", keyBlob, Mode.NonExecutableFile);
+
+            // Read existing config.json if it exists
+            var existingConfig = tree?["config.json"]?.Target.Peel<Blob>()?.GetContentText();
+            var dlcs = new HashSet<uint>();
+            
+            if (!string.IsNullOrEmpty(existingConfig)) {
+                var existing = JsonConvert.DeserializeObject<dynamic>(existingConfig);
+                if (existing?.dlcs != null) {
+                    foreach (var dlc in existing.dlcs) {
+                        dlcs.Add((uint)dlc);
+                    }
+                }
+            }
+
+            // If the current depot is not in the main app's depot list, it's likely a DLC
+            var mainDepots = depots.Keys.Select(k => uint.Parse(k)).ToHashSet();
+            if (!mainDepots.Contains(manifest.DepotId)) {
+                dlcs.Add(manifest.DepotId);
+            }
+
+            // Create or update config.json
+            var configJson = new {
+                appId = manifest.AppId,
+                depots = mainDepots.ToArray(),
+                dlcs = dlcs.ToArray(),
+                packagedlcs = new uint[] { },
+                app_token = 0
+            };
+            var configBlob = _repo.ObjectDatabase.CreateBlob(
+                new MemoryStream(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(configJson, Formatting.Indented))));
+            treeDef.Add("config.json", configBlob, Mode.NonExecutableFile);
 
             // Create a MemoryStream to hold the serialized data
             using var ms = new MemoryStream();
