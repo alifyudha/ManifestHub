@@ -1,4 +1,4 @@
-﻿﻿using System.Collections.Concurrent;
+﻿﻿﻿﻿using System.Collections.Concurrent;
 using System.Text;
 using System.Text.RegularExpressions;
 using LibGit2Sharp;
@@ -111,7 +111,7 @@ public partial class GitDatabase {
             }
 
             // If the current depot is not in the main app's depot list, it's likely a DLC
-            var mainDepots = depots.Children.Select(d => uint.Parse(d.Key)).ToHashSet();
+            var mainDepots = depots.Children().Select(d => uint.Parse(d.Key)).ToHashSet();
             if (!mainDepots.Contains(manifest.DepotId)) {
                 dlcs.Add(manifest.DepotId);
             }
