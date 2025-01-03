@@ -2,7 +2,7 @@
   "AccountName": "huso3551",
   "AccountPassword": "r1Pfq1czO7IgzGTCZBYBMA==",
   "RefreshToken": "tjqSzxhw/atmkE1YbQF48jIbo9khQ/Ez6HmidhbIhjo/2vp/g0MvTtJ1AlKqHHUEfjILsxvTVk9dWBrVRMWPoN/WrFdYmUS3x2Gb6sx7ZWEr1XzTkUXvtBbCm0Uc1eyAaLKYk6JUzNLUdglPMPUcpAIbOAAv6lWlmoxM3JuKWTISVbCQqPixk2vmOezUZoeiY+JIrAoy+EClxtWFKlsmgQgFOaVX179eKeOmFPJIqpocipgj9I1qO7t26PXXJdfBjza4rI2TYMxoX3+5j5N2Eh4rG56w1ywzr0EkECAyvzdKoVOmHexCR302rPX2yE7WO6ho3GIFIcm2gf7Jemma+yM9HHXa/t6d/Ros9hzVBVafbESXkR8jsPlLHBdUxdxp3z10GWV5q+NeVcR/DzBjBBTnWZvUYeIDvqHZsJdfK2a+SmC2foM776bQCpYjQL5dV9GtHCCxAt6B0/M4mFGJVOsmaUDxACWyOC/RQ58f+wqHquwIKaZdY71MQJ7izrVDl8hLzl68ovtfZqoGjLu8GN4YCqAkw+AxE8cci1LWxLdPSQqRj2NTcvf8b1Y44ff1/MNy1H01r6GBd1pLs0n2WPg++ercPLum0XTxCQSLkn2jYT+aSRpsKagE+wzs2zx8LKLmOBRPTAjuyc9A/pfIkA==",
-  "LastRefresh": "2024-12-29T10:23:50.3003211+00:00",
+  "LastRefresh": "2025-01-03T17:20:57.2720573+00:00",
   "Index": "AFSQ6-GGHJ",
   "AesEncrypted": true,
   "AesIV": "uyQr0v0gHPtpr+lSNjKwQw==",
@@ -10,13 +10,6 @@
     211,
     215,
     218,
-    220,
-    320,
-    340,
-    360,
-    364,
-    380,
-    420,
     550,
     563,
     564,
@@ -50,7 +43,6 @@
     1557210,
     1869820,
     2279720,
-    2279721,
-    3192540
+    2279721
   ]
 }
