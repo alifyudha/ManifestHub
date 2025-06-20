@@ -2,11 +2,12 @@
   "AccountName": "ewuiU318",
   "AccountPassword": "0MKyPgs5a7my28PWsEyJQw==",
   "RefreshToken": "5kGU+iR6T/LzLyq9Z9PzzQ5T6wseetcdM/JJyUKYyDz5mUHMbTwRTX6/BU3SobE3xA8IcHwv51vU/wiZnuErNYkA+ZkHg5lFw3ordwDzruFjV0JCQnhkatjW4i5guHj0ENhaUwkL87RbDvRS5b8kJgWHB+DDgTidg0WhhpWl/NSsbasY4NJXAe1en6WntKx6wygiSx9SzSZ1/OpXwLbHQewD8NBg+0LZ0fjw9ABe6KGZnvJ4tUk59VqXF3tvZJsa59x29I2ihH4BoN0ddD0EdIs8tqTrQ3M/KyYGAiBOB+bpxL8LNUiMmv6vr+qom8VCaYDDzaEqoQiKUrdtJKu0Zs/rOuw3i0a9t7bT149mSz2HmNMhTb+UR+s+PyqeLOayssAZusvAm13VCUQzGTf/+uM/NJErB4PWKL+KK3Ndwp33RUfE1yBx4OxB+VUdJsqyGPARWuQZ4V9YirfC0FmNz0IhVQMA3yJ512/i7X48/9AWHV+mE2uukIqUbs67Vk3fBWn+ngonC1IIeHbGqgJQ4Ig1fKHNHazGM0/wrFFgMbmNt6jWkLzQ3/UQNGAE/vOVg7Sxni/CxUDLIa3Q/BjqJE9PJcmMVtXUYZ0hgigUTzPanPtpx4GVPDKiI+k3JYXKX8Dd08B1BqLfWylHwk/hUw==",
-  "LastRefresh": "2025-06-17T10:30:24.5047577+00:00",
+  "LastRefresh": "2025-06-20T15:30:13.856039+00:00",
   "Index": "ALKS2-NBWL",
   "AesEncrypted": true,
   "AesIV": "QGLR0XcjCiAbm6yU+l1OPQ==",
   "AppIds": [
-    1158160
+    1158160,
+    3059400
   ]
 }
